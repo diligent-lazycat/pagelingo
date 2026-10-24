@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>PageLingo 网页灵译</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <span class="logo">文</span>
+    <div class="title-wrap">
+      <h1>PageLingo 网页灵译</h1>
+      <p class="sub">智能网页翻译 · 代码链接保持原文</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="lang-row">
+      <div class="lang-box">
+        <label>原文语言</label>
+        <select id="sourceLang"></select>
+      </div>
+      <button id="swapBtn" class="swap" title="互换语言">⇄</button>
+      <div class="lang-box">
+        <label>译文语言</label>
+        <select id="targetLang"></select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="translateBtn" class="btn btn-primary">翻译本页</button>
+      <button id="restoreBtn" class="btn btn-ghost">还原原文</button>
+    </div>
+    <p id="status" class="status"></p>
+  </section>
+
+  <section class="card">
+    <h2>翻译方式</h2>
+    <label class="row">
+      <span>划词翻译<span class="hint">选中文字即译</span></span>
+      <input type="checkbox" id="selectionEnabled" class="switch">
+    </label>
+    <label class="row">
+      <span>悬停翻译<span class="hint">悬停段落即译</span></span>
+      <input type="checkbox" id="hoverEnabled" class="switch">
+    </label>
+    <label class="row">
+      <span>保护专业术语<span class="hint">API、GitHub 等不译</span></span>
+      <input type="checkbox" id="protectTerms" class="switch">
+    </label>
+    <label class="row">
+      <span>链接保持原文<span class="hint">GitHub 链接文字不译</span></span>
+      <input type="checkbox" id="skipLinks" class="switch">
+    </label>
+  </section>
+
+  <section class="card">
+    <h2>翻译引擎</h2>
+    <select id="engine" class="full">
+      <option value="google">Google 免费接口（推荐）</option>
+      <option value="mymemory">MyMemory 免费接口</option>
+      <option value="custom">自定义接口</option>
+    </select>
+    <input id="customEndpoint" class="full endpoint" type="text"
+           placeholder="https://api.example.com?text={text}&from={from}&to={to}" />
+  </section>
+
+  <footer class="footer">
+    <a href="https://github.com/" target="_blank" rel="noopener">开源项目主页</a>
+    <span class="ver">v0.1.0</span>
+  </footer>
+
+  <script src="../shared/langs.js"></script>
+  <script src="../shared/storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

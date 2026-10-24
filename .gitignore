@@ -1,0 +1,25 @@
+# 构建产物
+*.7z
+*.zip
+*.crx
+dist/
+build/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# 依赖与缓存
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 敏感信息
+.env
+*.key
+*.pem

@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "PageLingo 网页灵译",
+  "version": "0.1.0",
+  "description": "智能网页翻译扩展：全页 / 划词 / 悬停三种翻译，代码块、命令与链接保持原文，支持中英日韩德五语互译。",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "PageLingo 网页灵译",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/shared/langs.js",
+        "src/shared/storage.js",
+        "src/content/classifier.js",
+        "src/content/protector.js",
+        "src/content/tooltip.js",
+        "src/content/hover.js",
+        "src/content/selection.js",
+        "src/content/dynamic.js",
+        "src/content/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
