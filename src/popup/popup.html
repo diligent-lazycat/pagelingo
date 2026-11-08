@@ -57,17 +57,23 @@
   <section class="card">
     <h2>翻译引擎</h2>
     <select id="engine" class="full">
-      <option value="google">Google 免费接口（推荐）</option>
+      <option value="auto">自动（推荐：失败自动切换）</option>
+      <option value="google">Google 免费接口</option>
       <option value="mymemory">MyMemory 免费接口</option>
+      <option value="deepl">DeepL 官方 API（需密钥）</option>
       <option value="custom">自定义接口</option>
     </select>
+    <input id="deeplKey" class="full endpoint" type="text"
+           placeholder="DeepL 密钥（免费版以 :fx 结尾）" />
     <input id="customEndpoint" class="full endpoint" type="text"
            placeholder="https://api.example.com?text={text}&from={from}&to={to}" />
+    <button id="diagBtn" class="btn btn-ghost diag-btn">检测引擎连通性</button>
+    <p id="diagStatus" class="status diag-status"></p>
   </section>
 
   <footer class="footer">
-    <a href="https://github.com/" target="_blank" rel="noopener">开源项目主页</a>
-    <span class="ver">v0.1.0</span>
+    <a href="https://github.com/diligent-lazycat/pagelingo" target="_blank" rel="noopener">开源项目主页</a>
+    <span class="ver">v0.2.0</span>
   </footer>
 
   <script src="../shared/langs.js"></script>

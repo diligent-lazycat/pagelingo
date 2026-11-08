@@ -36,40 +36,56 @@
 > 注：Chrome 137 起已移除 `--load-extension` 命令行参数，自动化场景需用 CDP 的
 > `Extensions.loadUnpacked`（配合 `--enable-unsafe-extension-debugging`）载入；手动安装不受影响。
 
-## 实测状态（v0.1.1）
+## 实测状态（v0.2.0）
 
 在真实 Chrome 157.0.8103.39（macOS）中自动化实测，两套用例全部通过：
 
 | 用例集 | 覆盖 | 结果 |
 |---|---|---|
-| 本地测试页 | 扩展加载、Popup 渲染、配置写入、内容脚本注入、全页翻译、代码块/行内代码/链接保持、术语保护、动态内容、划词、悬停、还原 | **14/14** |
+| 本地测试页 | 扩展加载、Popup 渲染、配置写入、内容脚本注入、全页翻译、代码块/行内代码/链接保持、术语保护、动态内容、划词、悬停、还原、引擎连通性自检 | **15/15** |
 | GitHub 真实页面 | 359 个文本节点中翻译 163 段，`pre`/`code`/链接逐字未变，页面宽度零变化 | **8/8** |
 
 实测中发现并修复的问题见 [CHANGELOG](CHANGELOG.md)，其中术语保护丢失术语（`GitHub` 被译成「0」）属严重缺陷，已改为「`{{n}}` 占位 → 译后校验 → 分段降级」三重保障。
 
 <p align="center">
-  <img src="docs/screenshots/popup.png" width="300" alt="设置面板">
-  <img src="docs/screenshots/translated-page.png" width="420" alt="全页翻译效果">
+  <img src="docs/screenshots/popup.png" width="280" alt="设置面板">
+  <img src="docs/screenshots/diagnose.png" width="280" alt="引擎连通性自检">
+  <img src="docs/screenshots/translated-page.png" width="360" alt="全页翻译效果">
 </p>
 
-上图右：代码块与行内代码保持原文，`GitHub`/`AI` 等术语不被翻译。
+上图左：设置面板；中：一键自检，直接显示哪条翻译链路通、哪条不通；右：代码块与行内代码保持原文，`GitHub`/`AI` 等术语不被翻译。
 
 ## 使用说明
 
 - 点击工具栏图标打开设置面板，选择**原文语言**与**译文语言**。
 - 点「翻译本页」进行全页翻译，点「还原原文」撤销。
 - 「划词翻译」默认开启；「悬停翻译」默认关闭，按需打开。
-- 翻译引擎默认 Google 免费接口；如遇限流，切换到 MyMemory 或填自己的接口。
+- 翻译引擎默认 **自动**：依次尝试 Google → MyMemory → DeepL → 自定义，第一个成功的即采用。
+- 若不确定为什么翻译不了，点面板底部「**检测引擎连通性**」，会逐个实测并显示哪条链路不通。
 
 ## 翻译引擎与注意事项
 
 | 引擎 | 是否需要密钥 | 说明 |
 |---|---|---|
-| Google 免费接口 | 否 | 非官方接口，速度快、质量好，偶有限流 |
-| MyMemory | 否 | 官方免费，匿名每日约 5000 字符，量小 |
+| **自动（默认）** | 否 | 按序尝试并自动切换；失败引擎冷却 10 分钟，避免每次空等超时 |
+| Google 免费接口 | 否 | 非官方接口，速度快、质量好，偶有限流；**中国大陆网络通常不可达** |
+| MyMemory | 否 | 官方免费，匿名每日约 5000 字符，量小但国内可直连 |
+| DeepL 官方 API | **是** | 免费版 50 万字符/月，密钥以 `:fx` 结尾；质量最好，适合长期日常使用 |
 | 自定义接口 | 视情况 | 支持 `{text}` `{from}` `{to}` 占位符，返回 `{"translatedText":"..."}` |
 
-> ⚠️ 免费接口的稳定性不如付费 API。若需长期稳定使用，建议自行替换为 DeepL / Google Cloud / OpenAI 等带密钥服务，只需在 `src/background/engines.js` 新增一个 engine 分支即可。
+### 关于 Google 接口在国内不可达
+
+Chrome 内置翻译与多数翻译插件都依赖 `translate.googleapis.com`。该域名在中国大陆
+通常**无法解析或无法建立连接**（DNS 污染 + TCP 443 不通），表现为：
+
+- 浏览器内置翻译：提示「无法翻译此页面」，或翻译按钮点了没反应；
+- 使用 Google 引擎的扩展：一直停在「正在翻译…」。
+
+PageLingo 的处理办法是**请求带超时 + 自动降级**，Google 不通时自动切到 MyMemory；
+若需要更高质量与更大额度，填一个 DeepL 免费密钥即可（注册后 5 分钟拿到）。
+
+> ⚠️ 免费接口的稳定性不如付费 API。若要接入其它服务（Google Cloud、OpenAI 等），
+> 只需在 `src/background/engines.js` 新增一个 engine 分支，无需改动其它模块。
 
 ## 项目结构
 

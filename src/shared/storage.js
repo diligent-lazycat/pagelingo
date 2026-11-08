@@ -8,8 +8,9 @@ window.LinguaPage = window.LinguaPage || {};
   const DEFAULTS = {
     sourceLang: 'auto',      // 源语言，默认自动检测
     targetLang: 'zh-CN',     // 目标语言，默认中文
-    engine: 'google',        // 翻译引擎：google | mymemory | custom
+    engine: 'auto',          // 翻译引擎：auto | google | mymemory | deepl | custom
     customEndpoint: '',      // 自定义接口 URL 模板，占位符 {text} {from} {to}
+    deeplKey: '',            // DeepL 官方 API 密钥（免费版以 :fx 结尾）
     selectionEnabled: true,  // 划词翻译
     hoverEnabled: false,     // 段落悬停翻译
     skipLinks: true,         // 链接文字保持原文

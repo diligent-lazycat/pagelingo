@@ -73,11 +73,13 @@ window.LinguaPage = window.LinguaPage || {};
         sl: s.sourceLang,
         tl: s.targetLang,
         engine: s.engine,
-        customEndpoint: s.customEndpoint
+        customEndpoint: s.customEndpoint,
+        deeplKey: s.deeplKey
       }, function (resp) {
         if (chrome.runtime.lastError) {
           resolve({ error: chrome.runtime.lastError.message });
         } else {
+          if (resp && resp.engine) LP.lastEngine = resp.engine;
           resolve(resp || {});
         }
       });
@@ -159,7 +161,7 @@ window.LinguaPage = window.LinguaPage || {};
     LP.setDynamicEnabled(true); // 开启动态内容翻译
     if (!nodes.length) return { count: 0 };
     await LP.translateNodes(nodes);
-    return { count: nodes.length };
+    return { count: nodes.length, engine: LP.lastEngine || '' };
   };
 
   LP.restorePage = function () {

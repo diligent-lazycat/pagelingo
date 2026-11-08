@@ -249,6 +249,18 @@ async function until(fn, timeout = 60000, interval = 500) {
   await page.screenshot({ path: OUT + '/04-restored.png', fullPage: true });
   report.shots.push('04-restored.png');
 
+  // ---- T14 引擎连通性自检（Popup 的「检测引擎连通性」按钮）
+  await popup.evaluate(() => document.getElementById('diagBtn').click());
+  const diag = await until(async () => {
+    const t = await popup.evaluate(() => document.getElementById('diagStatus').textContent.trim());
+    return /✅|❌/.test(t) ? t : null;
+  }, 30000);
+  log('T14 引擎连通性自检', !!diag && /MyMemory/.test(diag), { diag });
+  await popup.setViewportSize({ width: 380, height: 1000 });
+  await wait(300);
+  await popup.screenshot({ path: OUT + '/07-diag.png' });
+  report.shots.push('07-diag.png');
+
   // ---- 汇总
   const passed = report.steps.filter(s => s.ok).length;
   report.summary = { total: report.steps.length, passed, failed: report.steps.length - passed, errors: report.errors };

@@ -103,6 +103,8 @@ select.full, input.full {
   border-radius: 8px; font-size: 13px; background: #fff; color: var(--text);
 }
 .endpoint { margin-top: 8px; display: none; font-size: 12px; }
+.diag-btn { margin-top: 10px; font-size: 12px; padding: 7px 0; }
+.diag-status { white-space: pre-line; font-size: 11px; line-height: 1.6; }
 
 .footer {
   display: flex; justify-content: space-between; align-items: center;
