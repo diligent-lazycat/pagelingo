@@ -19,6 +19,9 @@ __pycache__/
 .venv/
 venv/
 
+# 测试产物
+tests/e2e/output/
+
 # 敏感信息
 .env
 *.key

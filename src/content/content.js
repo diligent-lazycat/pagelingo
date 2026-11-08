@@ -23,8 +23,8 @@ window.LinguaPage = window.LinguaPage || {};
 
   function applySettings(s) {
     LP.settings = Object.assign({}, LP.settings || {}, s);
-    // 关闭全页翻译相关状态时，停止动态翻译
-    LP.setDynamicEnabled(!!s.autoDynamic);
+    // 注意：动态翻译的开关只由「翻译本页 / 还原原文」控制。
+    // 改设置时不能动它，否则用户翻译完再调一次语言会把动态翻译关掉（旧版 bug）。
   }
 
   // ---------------------------------------------------------------- 节点判定
@@ -39,6 +39,8 @@ window.LinguaPage = window.LinguaPage || {};
       if (LP.classifier.shouldSkipElement(el)) return true;
       el = el.parentElement;
     }
+    // 文本本身像代码/命令/版本号时也跳过（旧版定义了 isCodeLike 却从未调用）
+    if (LP.classifier.isCodeLike((node.nodeValue || '').trim())) return true;
     return false;
   };
 
@@ -125,16 +127,27 @@ window.LinguaPage = window.LinguaPage || {};
 
     const s = LP.getSettings();
     const terms = s.protectTerms ? LP.DEFAULT_TERMS : [];
-    const protectedData = texts.map(function (t) { return LP.protector.protect(t, terms); });
 
-    const results = await LP.translateTexts(protectedData.map(function (p) { return p.text; }));
+    // 第一轮：行内占位（{{0}}），整句翻译，语法完整
+    const prot = texts.map(function (t) { return LP.protector.protect(t, terms); });
+    const r1 = await LP.translateTexts(prot.map(function (p) { return p.text; }));
+    const finals = prot.map(function (p, i) { return LP.protector.restore(r1[i], p.tokens); });
+
+    // 第二轮：占位符被引擎吞掉的节点，降级为分段法（术语绝不进翻译器）
+    const fallbackIdx = [];
+    finals.forEach(function (r, i) { if (r.missing) fallbackIdx.push(i); });
+    if (fallbackIdx.length) {
+      const planned = LP.protector.planBatch(fallbackIdx.map(function (i) { return texts[i]; }), terms);
+      const r2 = planned.queue.length ? await LP.translateTexts(planned.queue) : [];
+      const fixed = LP.protector.assemble(planned.plans, r2);
+      fallbackIdx.forEach(function (i, k) { finals[i] = { text: fixed[k], missing: 0 }; });
+    }
 
     valid.forEach(function (node, i) {
-      const finalText = LP.protector.restore(results[i], protectedData[i].placeholders);
       const w = ws[i];
       // 记录原文以便还原
       LP.translatedList.push({ node: node, orig: node.nodeValue });
-      node.nodeValue = w.lead + finalText + w.tail;
+      node.nodeValue = w.lead + finals[i].text + w.tail;
       LP.doneTextNodes.add(node);
     });
   };

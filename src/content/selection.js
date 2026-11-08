@@ -36,9 +36,7 @@ window.LinguaPage = window.LinguaPage || {};
     try {
       const s = settings();
       const terms = s.protectTerms ? LP.DEFAULT_TERMS : [];
-      const p = LP.protector.protect(text, terms);
-      const result = await LP.translateTexts([p.text], s.sourceLang, s.targetLang);
-      const out = LP.protector.restore(result[0], p.placeholders);
+      const out = await LP.protector.translateText(text, terms, s.sourceLang, s.targetLang);
       LP.tooltip.show(out, text, anchor);
     } catch (err) {
       LP.tooltip.show('翻译失败：' + err.message, text, anchor);

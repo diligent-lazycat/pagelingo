@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PageLingo Test Page</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 820px; margin: 40px auto; line-height: 1.7; color: #1f2328; }
+  h1 { border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+  h2 { margin-top: 32px; }
+  pre { background: #f6f8fa; padding: 14px; border-radius: 6px; overflow-x: auto; }
+  code { background: #eff1f3; padding: 2px 5px; border-radius: 4px; font-size: 90%; }
+  pre code { background: none; padding: 0; }
+  a { color: #0969da; }
+  .note { border-left: 4px solid #0969da; padding-left: 12px; color: #57606a; }
+</style>
+</head>
+<body>
+
+<h1>Getting Started with This Tool</h1>
+
+<p>This extension translates web pages into your language while keeping technical content intact.
+The main goal is to help developers read documentation on GitHub and AI websites without confusion.</p>
+
+<p class="note">A quick note: the text in this paragraph should be translated into Chinese.</p>
+
+<h2>Installation</h2>
+
+<p>First, clone the repository with <code>git clone https://github.com/user/repo.git</code> and then open the folder in your editor.</p>
+
+<pre><code>$ git clone https://github.com/user/repo.git
+$ cd repo
+$ npm install
+$ npm run build
+# then open chrome://extensions and load the unpacked folder</code></pre>
+
+<p>If the installation fails, check that your Node.js version is newer than 18 and that the API key is valid.</p>
+
+<h2>Core Concepts</h2>
+
+<ul>
+  <li>A Pull Request lets you propose changes to a repository before merging.</li>
+  <li>The JSON configuration file must be valid, otherwise the build stops.</li>
+  <li>TypeScript types help catch errors during development.</li>
+  <li>Large Language Models can summarize long documents quickly.</li>
+</ul>
+
+<p>Read the official documentation at <a href="https://github.com/user/repo">the project homepage</a> for more details.</p>
+
+<p>The Transformer architecture changed how the AI industry builds products, and the LLM ecosystem grew very fast in recent years.</p>
+
+<h2>Dynamic Content</h2>
+
+<div id="dynamic-box"><!-- JS 注入测试区 --></div>
+
+<h2>Selection Test</h2>
+
+<p id="sel-target">Select this sentence with your mouse and check whether a translation tooltip appears right next to it.</p>
+
+<script>
+  // 模拟 SPA 动态加载：2 秒后插入一段英文内容，用于验证 MutationObserver
+  setTimeout(function () {
+    const p = document.createElement('p');
+    p.id = 'late-content';
+    p.textContent = 'This paragraph was loaded dynamically after the page finished rendering.';
+    document.getElementById('dynamic-box').appendChild(p);
+  }, 2000);
+</script>
+
+</body>
+</html>
