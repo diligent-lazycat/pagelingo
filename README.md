@@ -43,9 +43,16 @@
 | 用例集 | 覆盖 | 结果 |
 |---|---|---|
 | 本地测试页 | 扩展加载、Popup 渲染、配置写入、内容脚本注入、全页翻译、代码块/行内代码/链接保持、术语保护、动态内容、划词、悬停、还原 | **14/14** |
-| GitHub 真实页面 | 310 个文本节点中翻译 145 段，`pre`/`code`/链接逐字未变，页面宽度零变化 | **8/8** |
+| GitHub 真实页面 | 359 个文本节点中翻译 163 段，`pre`/`code`/链接逐字未变，页面宽度零变化 | **8/8** |
 
 实测中发现并修复的问题见 [CHANGELOG](CHANGELOG.md)，其中术语保护丢失术语（`GitHub` 被译成「0」）属严重缺陷，已改为「`{{n}}` 占位 → 译后校验 → 分段降级」三重保障。
+
+<p align="center">
+  <img src="docs/screenshots/popup.png" width="300" alt="设置面板">
+  <img src="docs/screenshots/translated-page.png" width="420" alt="全页翻译效果">
+</p>
+
+上图右：代码块与行内代码保持原文，`GitHub`/`AI` 等术语不被翻译。
 
 ## 使用说明
 
@@ -90,6 +97,8 @@ pagelingo/
 │       ├── popup.css
 │       └── popup.js
 ├── docs/方案分析.md            # 方案对比与技术选型
+├── docs/screenshots/          # 实测截图
+├── tests/e2e/                 # 真实 Chrome 自动化实测（见 tests/e2e/README.md）
 └── scripts/gen_icons.py       # 图标生成脚本
 ```
 
