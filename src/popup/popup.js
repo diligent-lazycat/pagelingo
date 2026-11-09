@@ -213,6 +213,25 @@
     });
   }
 
+  // 兜底提额：面板每次打开都会从磁盘重新加载脚本，即使后台 service worker
+  // 还是旧版（用户没点 ↻），旧后台也会读 storage 里的 mmEmail。
+  // 在这里补写一次，用户「打开面板 → 点翻译」就能直接生效，不必先重载扩展。
+  function ensureMmEmail() {
+    LP.storage.getAll().then(function (s) {
+      if (!s || s.mmEmail) return;
+      let id;
+      try { id = crypto.randomUUID().replace(/-/g, '').slice(0, 16); }
+      catch (e) { id = Math.random().toString(36).slice(2, 12) + Date.now().toString(36); }
+      const auto = 'pagelingo-' + id + '@example.com';
+      chrome.storage.sync.set({ mmEmail: auto }, function () {
+        if (settings) settings.mmEmail = auto;
+        els.mmEmail.value = auto;
+        // 通知页面刷新设置缓存，避免内容脚本还拿着旧的空值
+        sendToTab({ type: 'LP_UPDATE_SETTINGS', settings: Object.assign({}, settings || {}, { mmEmail: auto }) });
+      });
+    }).catch(function () { /* 不影响面板其它功能 */ });
+  }
+
   function init() {
     fillLangs();
     bind();
@@ -221,7 +240,7 @@
       const v = $('appVersion');
       if (v) v.textContent = 'v' + chrome.runtime.getManifest().version;
     } catch (e) { /* 忽略 */ }
-    LP.storage.getAll().then(applySettings);
+    LP.storage.getAll().then(applySettings).then(ensureMmEmail);
   }
 
   document.addEventListener('DOMContentLoaded', init);
