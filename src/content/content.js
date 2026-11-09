@@ -77,6 +77,12 @@ window.LinguaPage = window.LinguaPage || {};
 
   // 向后台发送翻译请求，返回与 texts 等长的结果数组
   async function requestTranslate(texts) {
+    // 每次都读一次最新设置：用户在面板改了引擎/邮箱后，页面里的缓存会是旧的
+    // （典型症状：填了 MyMemory 邮箱却仍提示额度用尽）
+    try {
+      const fresh = await LP.storage.getAll();
+      LP.settings = Object.assign({}, LP.settings || {}, fresh);
+    } catch (e) { /* 读不到就用缓存值 */ }
     const s = LP.getSettings();
     return new Promise(function (resolve) {
       chrome.runtime.sendMessage({
@@ -86,7 +92,8 @@ window.LinguaPage = window.LinguaPage || {};
         tl: s.targetLang,
         engine: s.engine,
         customEndpoint: s.customEndpoint,
-        deeplKey: s.deeplKey
+        deeplKey: s.deeplKey,
+        mmEmail: s.mmEmail
       }, function (resp) {
         if (chrome.runtime.lastError) {
           resolve({ error: chrome.runtime.lastError.message });
@@ -98,14 +105,21 @@ window.LinguaPage = window.LinguaPage || {};
     });
   }
 
+  // 最近一次批量翻译的真实失败原因。
+  // translateTexts 在失败时会把原文填回去（保证页面不被搞乱），
+  // 若不把原因带出来，上层只能猜「没有返回译文」，用户拿不到可执行的信息。
+  let lastTranslateError = '';
+
   // 分批翻译，返回与 texts 等长的数组（失败批返回原文）
   LP.translateTexts = async function (texts, sl, tl) {
     const CHUNK = 100;
     const flat = [];
+    lastTranslateError = '';
     for (let i = 0; i < texts.length; i += CHUNK) {
       const chunk = texts.slice(i, i + CHUNK);
       const resp = await requestTranslate(chunk);
       if (resp.error) {
+        if (!lastTranslateError) lastTranslateError = resp.error;
         flat.push.apply(flat, chunk); // 失败时保留原文
       } else {
         const tr = resp.translations || chunk;
@@ -155,6 +169,25 @@ window.LinguaPage = window.LinguaPage || {};
       const r2 = planned.queue.length ? await LP.translateTexts(planned.queue) : [];
       const fixed = LP.protector.assemble(planned.plans, r2);
       fallbackIdx.forEach(function (i, k) { finals[i] = { text: fixed[k], missing: 0 }; });
+    }
+
+    // 第三轮校验：引擎若把原文原样返回（常见于免费额度耗尽），不能谎报「翻译完成」
+    let unchanged = 0;
+    let checked = 0;
+    for (let i = 0; i < finals.length; i++) {
+      const src = String(texts[i] || '').trim();
+      const out = String(finals[i].text || '').trim();
+      if (!/[A-Za-z\u00C0-\u024F\u0400-\u04FF]/.test(src)) continue; // 纯数字/符号不参与判定
+      checked++;
+      if (out === src) unchanged++;
+    }
+    if (checked > 0 && unchanged === checked) {
+      // 有真实失败原因就直接透出：它包含「该填邮箱 / 该换密钥 / 该开代理」等可执行信息
+      if (lastTranslateError) {
+        throw new Error(lastTranslateError);
+      }
+      throw new Error('翻译服务没有返回译文（大概率是免费额度已用尽）。' +
+        '请在面板「MyMemory 邮箱」填入任意邮箱把额度提升到 5 万字符/天，或改用 DeepL 密钥');
     }
 
     valid.forEach(function (node, i) {

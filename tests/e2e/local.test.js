@@ -11,6 +11,14 @@ const LOCAL = process.env.SITE_URL || 'http://127.0.0.1:8765/';
 const PORT = process.env.PORT || '9333';
 const CJK = /[\u4e00-\u9fa5]/;
 
+// 引擎选择：默认走本地 mock（离线、确定、不受第三方额度影响）；
+// LP_MOCK=0 + MM_EMAIL=you@example.com 可切回真实 MyMemory 接口做联网验证。
+const MOCK = process.env.LP_MOCK !== '0';
+const MOCK_URL = process.env.MOCK_URL || 'http://127.0.0.1:8799/';
+const MM_EMAIL = process.env.MM_EMAIL || '';
+const ENGINE = MOCK ? 'custom' : 'mymemory';
+const ENDPOINT = MOCK ? MOCK_URL + '?text={text}&from={from}&to={to}' : '';
+
 fs.mkdirSync(OUT, { recursive: true });
 const report = { browser: '', extId: '', steps: [], errors: [], shots: [] };
 const log = (step, ok, detail) => {
@@ -69,15 +77,17 @@ async function until(fn, timeout = 60000, interval = 500) {
     popupState.srcOptions === 6 && popupState.tgtOptions === 5 && popupState.hasTranslateBtn && !popupErrors.length,
     { popupState, popupErrors });
 
-  const cfg = await popup.evaluate(async () => {
+  const cfg = await popup.evaluate(async (c) => {
     await chrome.storage.sync.set({
-      sourceLang: 'en', targetLang: 'zh-CN', engine: 'mymemory',
-      customEndpoint: '', selectionEnabled: true, hoverEnabled: false,
+      sourceLang: 'en', targetLang: 'zh-CN', engine: c.engine,
+      customEndpoint: c.endpoint, mmEmail: c.email,
+      selectionEnabled: true, hoverEnabled: false,
       skipLinks: true, protectTerms: true
     });
     return await chrome.storage.sync.get(null);
-  });
-  log('T3 配置写入 storage.sync（mymemory 引擎）', cfg.engine === 'mymemory', cfg);
+  }, { engine: ENGINE, endpoint: ENDPOINT, email: MM_EMAIL });
+  log('T3 配置写入 storage.sync（引擎 ' + ENGINE + '）',
+    cfg.engine === ENGINE && cfg.customEndpoint === ENDPOINT, cfg);
 
   // ---- T4 打开本地测试页，在「隔离世界」里验证内容脚本注入
   const page = await ctx.newPage();
@@ -207,14 +217,18 @@ async function until(fn, timeout = 60000, interval = 500) {
   report.shots.push('03-selection.png');
 
   // ---- T12b 悬停翻译（开启 hoverEnabled）
-  await popup.evaluate(async () => {
+  await popup.evaluate(async (c) => {
     await chrome.storage.sync.set({ hoverEnabled: true });
     const tabs = await chrome.tabs.query({ url: 'http://127.0.0.1:8765/*' });
     await new Promise(r => chrome.tabs.sendMessage(tabs[0].id, {
       type: 'LP_UPDATE_SETTINGS',
-      settings: { hoverEnabled: true, selectionEnabled: true, skipLinks: true, protectTerms: true, engine: 'mymemory', sourceLang: 'en', targetLang: 'zh-CN' }
+      settings: {
+        hoverEnabled: true, selectionEnabled: true, skipLinks: true, protectTerms: true,
+        engine: c.engine, customEndpoint: c.endpoint, mmEmail: c.email,
+        sourceLang: 'en', targetLang: 'zh-CN'
+      }
     }, r));
-  });
+  }, { engine: ENGINE, endpoint: ENDPOINT, email: MM_EMAIL });
   // 先点空白处让上一条悬浮框消失
   await page.mouse.click(5, 5);
   await wait(400);

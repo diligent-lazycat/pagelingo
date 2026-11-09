@@ -18,7 +18,7 @@ export no_proxy=127.0.0.1,localhost
 export EXT_DIR OUT_DIR="$HERE/output" PORT
 
 cleanup() {
-  kill "${CHROME_PID:-0}" "${HTTP_PID:-0}" 2>/dev/null || true
+  kill "${CHROME_PID:-0}" "${HTTP_PID:-0}" "${MOCK_PID:-0}" 2>/dev/null || true
   rm -rf "$PROFILE"
 }
 trap cleanup EXIT
@@ -44,5 +44,18 @@ for _ in $(seq 1 40); do
   curl -s --noproxy '*' --max-time 2 "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1 && break
   sleep 0.5
 done
+
+# 默认用本地 mock 引擎：离线、确定、不受第三方免费额度影响。
+# 想用真实 MyMemory 接口：LP_MOCK=0 MM_EMAIL=you@example.com bash tests/e2e/run-local.sh
+export LP_MOCK="${LP_MOCK:-1}"
+export MOCK_URL="http://127.0.0.1:${MOCK_PORT:-8799}/"
+if [ "$LP_MOCK" != "0" ]; then
+  MOCK_PORT="${MOCK_PORT:-8799}" "$NODE_BIN" "$HERE/mock-engine.js" >/dev/null 2>&1 &
+  MOCK_PID=$!
+  sleep 1
+  echo "翻译引擎：本地 mock（${MOCK_URL}离线确定）"
+else
+  echo "翻译引擎：真实 MyMemory（MM_EMAIL=${MM_EMAIL:-未填，额度约 5000 字符/天}）"
+fi
 
 "$NODE_BIN" "$HERE/local.test.js"

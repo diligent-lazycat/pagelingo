@@ -19,6 +19,36 @@ function sleep(ms) {
   return new Promise(function (r) { setTimeout(r, ms); });
 }
 
+/**
+ * MyMemory 官方提额通道：请求里带 de=<邮箱>，额度从「匿名 5000 字符/天」
+ * 提升到「5 万字符/天」。实测：额度耗尽后带上邮箱立即恢复可用。
+ * 该邮箱不会用于登录，仅作为额度标识发给 MyMemory。
+ */
+let MYMEMORY_EMAIL = '';
+let LAST_CREDS = '';
+
+/**
+ * 同步一次「引擎凭据」。凭据变了就作废引擎冷却：
+ * 之前「Google 不通、MyMemory 超额」的结论只对旧凭据成立，
+ * 若不清空，用户填完邮箱后仍会跳过本已可用的 MyMemory，
+ * 症状就是「填了邮箱还是不行」。
+ */
+function syncEngineCredentials(mmEmail, deeplKey) {
+  const email = String(mmEmail || '').trim();
+  const key = String(deeplKey || '').trim();
+  const sig = email + '\u0000' + key;
+  if (sig !== LAST_CREDS) {
+    LAST_CREDS = sig;
+    MYMEMORY_EMAIL = email;
+    resetEngineHealth();
+  }
+  return MYMEMORY_EMAIL;
+}
+
+function setMyMemoryEmail(email) {
+  syncEngineCredentials(email, LAST_CREDS.split('\u0000')[1] || '');
+}
+
 // 带超时的 fetch，避免墙外接口把整批请求拖死
 async function fetchJson(url, opts, timeoutMs) {
   const ctrl = new AbortController();
@@ -27,8 +57,13 @@ async function fetchJson(url, opts, timeoutMs) {
     const init = Object.assign({ signal: ctrl.signal }, opts || {});
     const res = await fetch(url, init);
     if (!res.ok) {
+      // 把响应体一起带走：MyMemory 的 429 正文里写了「额度用完」，
+      // 只看 HTTP 429 用户不知道该干什么。
+      let body = '';
+      try { body = await res.text(); } catch (e2) { /* 正文读不到就只留状态码 */ }
       const err = new Error('HTTP ' + res.status);
       err.status = res.status;
+      err.body = body.slice(0, 500);
       throw err;
     }
     return await res.json();
@@ -79,15 +114,37 @@ const GoogleEngine = {
   }
 };
 
+/** MyMemory 额度耗尽时的可执行提示（有没有填邮箱，说法不同） */
+function myMemoryQuotaError() {
+  return new Error(MYMEMORY_EMAIL
+    ? 'MyMemory 连提额邮箱的额度也用完了，请明天再试或改用 DeepL 密钥'
+    : 'MyMemory 今日免费额度已用完（约 5000 字符/天）。在面板填入 MyMemory 邮箱，可提升到 5 万字符/天');
+}
+
 const MyMemoryEngine = {
   // 仅支持单条，且单条不超过 500 字符
   async translateOne(text, sl, tl) {
     const langpair = normSl(sl, 'mymemory') + '|' + tl;
-    const url = 'https://api.mymemory.translated.net/get?q=' +
+    let url = 'https://api.mymemory.translated.net/get?q=' +
       encodeURIComponent(text) + '&langpair=' + encodeURIComponent(langpair);
+    // 带邮箱可把额度从 5000 提升到 50000 字符/天
+    if (MYMEMORY_EMAIL) url += '&de=' + encodeURIComponent(MYMEMORY_EMAIL);
 
-    const data = await fetchJson(url, null, 12000);
+    let data;
+    try {
+      data = await fetchJson(url, null, 12000);
+    } catch (e) {
+      // 429 就是额度耗尽，直接给可执行建议，不要把裸状态码抛给用户
+      if (e.status === 429 || /USED ALL AVAILABLE FREE TRANSLATIONS/.test(e.body || '')) {
+        throw myMemoryQuotaError();
+      }
+      throw e;
+    }
     const out = data && data.responseData && data.responseData.translatedText;
+
+    if (typeof out === 'string' && out.indexOf('USED ALL AVAILABLE FREE TRANSLATIONS') >= 0) {
+      throw myMemoryQuotaError();
+    }
     if (!out || out.indexOf('MYMEMORY WARNING') === 0 || out === 'NO QUERY SPECIFIED') {
       throw new Error('MyMemory 已达免费额度或查询无效');
     }
@@ -205,6 +262,12 @@ const health = { dead: {} };
 const DEAD_TTL = 10 * 60 * 1000;
 
 function markDead(name) { health.dead[name] = Date.now() + DEAD_TTL; }
+
+// 用户改了设置（填邮箱/换密钥）后，之前的「引擎已失败」结论不再成立，
+// 必须清空冷却，否则会跳过本已可用的引擎，表现为「填了邮箱还是不行」。
+function resetEngineHealth() {
+  health.dead = {};
+}
 function markAlive(name) { delete health.dead[name]; }
 function isDead(name) {
   const t = health.dead[name];
@@ -243,7 +306,9 @@ async function runAuto(texts, sl, tl, customEndpoint, deeplKey) {
       console.warn('[PageLingo] 引擎 ' + engine + ' 失败，尝试下一个：' + (e.message || e));
     }
   }
-  throw lastErr || new Error('所有引擎均不可用');
+  // 全部引擎都在冷却期时 lastErr 为空，别抛「所有引擎均不可用」这种无用信息
+  throw lastErr || new Error(
+    '翻译服务刚刚全部失败过，已临时跳过。请检查网络/代理，或在面板改用 DeepL 密钥');
 }
 
 /**

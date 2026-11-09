@@ -13,13 +13,37 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     return true; // 异步响应
   }
   if (msg && msg.type === 'LP_DIAGNOSE') {
-    diagnose(msg.sl || 'en', msg.tl || 'zh-CN', msg.customEndpoint || '', msg.deeplKey || '')
+    readMmEmail().then(function (mm) {
+      syncEngineCredentials(msg.mmEmail || mm, msg.deeplKey || '');
+      return diagnose(msg.sl || 'en', msg.tl || 'zh-CN', msg.customEndpoint || '', msg.deeplKey || '');
+    })
       .then(function (r) { sendResponse({ results: r }); })
       .catch(function (err) { sendResponse({ error: err.message || String(err) }); });
     return true;
   }
+  // 面板也走后台下发指令：这样同样能享受「页面无脚本时自动补注入」
+  if (msg && msg.type === 'LP_CMD') {
+    const task = msg.action === 'restore'
+      ? runOnActiveTab({ type: 'LP_RESTORE' }, false)
+      : runOnActiveTab({ type: 'LP_TRANSLATE_PAGE' }, true);
+    task.then(function (r) { sendResponse(r); })
+        .catch(function (e) { sendResponse({ error: e.message || String(e) }); });
+    return true;
+  }
   return false;
 });
+
+// 后台自己读一次邮箱：不依赖内容脚本把 mmEmail 传上来
+// （页面里的设置缓存可能滞后，或补注入的脚本读到的是旧值）
+function readMmEmail() {
+  return new Promise(function (resolve) {
+    try {
+      chrome.storage.sync.get({ mmEmail: '' }, function (items) {
+        resolve((items && items.mmEmail) || '');
+      });
+    } catch (e) { resolve(''); }
+  });
+}
 
 async function handleTranslate(msg) {
   const texts = Array.isArray(msg.texts) ? msg.texts : [msg.texts];
@@ -28,6 +52,9 @@ async function handleTranslate(msg) {
   const engine = msg.engine || 'auto';
   const customEndpoint = msg.customEndpoint || '';
   const deeplKey = msg.deeplKey || '';
+
+  // MyMemory 提额邮箱（不填也能用，只是额度小）；同时按凭据变化清空引擎冷却
+  syncEngineCredentials(msg.mmEmail || await readMmEmail(), deeplKey);
 
   const out = await translate(texts, sl, tl, engine, customEndpoint, deeplKey);
   // auto 模式返回 { translations, engine }，其它模式返回数组

@@ -18,6 +18,7 @@
     engine: $('engine'),
     customEndpoint: $('customEndpoint'),
     deeplKey: $('deeplKey'),
+    mmEmail: $('mmEmail'),
     diagBtn: $('diagBtn'),
     diagStatus: $('diagStatus')
   };
@@ -59,6 +60,7 @@
     els.engine.value = s.engine;
     els.customEndpoint.value = s.customEndpoint || '';
     els.deeplKey.value = s.deeplKey || '';
+    els.mmEmail.value = s.mmEmail || '';
     toggleEngineInputs();
   }
 
@@ -85,7 +87,8 @@
       skipLinks: els.skipLinks.checked,
       engine: els.engine.value,
       customEndpoint: els.customEndpoint.value.trim(),
-      deeplKey: els.deeplKey.value.trim()
+      deeplKey: els.deeplKey.value.trim(),
+      mmEmail: els.mmEmail.value.trim()
     };
     LP.storage.set(settings);
     sendToTab({ type: 'LP_UPDATE_SETTINGS', settings: settings });
@@ -108,37 +111,31 @@
     });
   }
 
-  // 翻译本页
+  // 翻译本页：交给后台下发，这样页面缺脚本时会自动补注入（面板直连做不到）
   function translatePage() {
     setStatus('正在翻译…');
-    getActiveTab().then(function (tab) {
-      if (!tab || !tab.id) { setStatus('未找到当前页面', true); return; }
-      // 内部页（chrome://、扩展页、应用商店）注定无法注入内容脚本，提前说清楚
-      const url = tab.url || '';
-      if (/^(chrome|edge|about|devtools|chrome-extension|extension):/i.test(url) ||
-          /chromewebstore\.google\.com|chrome\.google\.com\/webstore/i.test(url)) {
-        setStatus('这是浏览器内部页，扩展无法在此翻译。请切到一个普通网页（http/https）再点。', true);
+    chrome.runtime.sendMessage({ type: 'LP_CMD', action: 'translate' }, function (resp) {
+      if (chrome.runtime.lastError) {
+        setStatus('后台未响应，请在扩展页重载一次后重试', true);
         return;
       }
-      chrome.tabs.sendMessage(tab.id, { type: 'LP_TRANSLATE_PAGE' }, function (resp) {
-        if (chrome.runtime.lastError) {
-          setStatus('此页面还没加载扩展脚本：请先按 ⌘R 刷新页面，再点一次。', true);
-          return;
-        }
-        if (resp && resp.error) {
-          setStatus('翻译失败：' + resp.error, true);
-        } else if (resp && resp.count === 0) {
-          setStatus('本页没有需要翻译的文本（可能已是中文）');
-        } else {
-          const eng = resp && resp.engine ? ('，引擎 ' + (ENGINE_LABEL[resp.engine] || resp.engine)) : '';
-          setStatus('翻译完成，共 ' + ((resp && resp.count) || 0) + ' 段文本' + eng);
-        }
-      });
+      if (resp && resp.error) {
+        setStatus('翻译失败：' + resp.error, true);
+        return;
+      }
+      if (resp && resp.count === 0) {
+        setStatus('本页没有需要翻译的文本（可能已是中文）');
+        return;
+      }
+      const eng = resp && resp.engine ? ('，引擎 ' + (ENGINE_LABEL[resp.engine] || resp.engine)) : '';
+      setStatus('翻译完成，共 ' + ((resp && resp.count) || 0) + ' 段文本' + eng);
     });
   }
 
   function restorePage() {
-    sendToTab({ type: 'LP_RESTORE' });
+    chrome.runtime.sendMessage({ type: 'LP_CMD', action: 'restore' }, function () {
+      if (chrome.runtime.lastError) { /* 忽略 */ }
+    });
     setStatus('已还原原文');
     setTimeout(function () { setStatus(''); }, 1500);
   }
@@ -155,6 +152,10 @@
     els.deeplKey.addEventListener('input', function () {
       settings.deeplKey = els.deeplKey.value.trim();
       LP.storage.set({ deeplKey: settings.deeplKey });
+    });
+    els.mmEmail.addEventListener('input', function () {
+      settings.mmEmail = els.mmEmail.value.trim();
+      LP.storage.set({ mmEmail: settings.mmEmail });
     });
 
     els.swapBtn.addEventListener('click', function () {
@@ -184,7 +185,8 @@
       sl: 'en',
       tl: els.targetLang.value || 'zh-CN',
       customEndpoint: els.customEndpoint.value.trim(),
-      deeplKey: els.deeplKey.value.trim()
+      deeplKey: els.deeplKey.value.trim(),
+      mmEmail: els.mmEmail.value.trim()
     }, function (resp) {
       if (chrome.runtime.lastError || !resp) {
         els.diagStatus.className = 'status diag-status error';

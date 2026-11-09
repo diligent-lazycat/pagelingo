@@ -120,3 +120,6 @@ select.full, input.full {
   color: var(--muted);
 }
 .tip b { color: #4b5563; font-weight: 600; }
+
+/* MyMemory 提额邮箱：常驻显示（不属于某个引擎专属） */
+.mm-email { margin-top: 8px; font-size: 12px; }
