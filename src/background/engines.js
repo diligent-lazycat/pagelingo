@@ -20,9 +20,10 @@ function sleep(ms) {
 }
 
 /**
- * MyMemory 官方提额通道：请求里带 de=<邮箱>，额度从「匿名 5000 字符/天」
- * 提升到「5 万字符/天」。实测：额度耗尽后带上邮箱立即恢复可用。
- * 该邮箱不会用于登录，仅作为额度标识发给 MyMemory。
+ * MyMemory 官方提额通道：请求里带 de=<邮箱格式标识>，额度从「匿名 5000 字符/天」
+ * 提升到「5 万字符/天」。实测：额度耗尽后带上标识立即恢复可用。
+ * 该值仅作为额度标识发给 MyMemory，不用于登录；用户不填时由 service-worker
+ * 自动生成并持久化一个 pagelingo-<随机>@example.com，避免匿名额度耗尽导致全链失败。
  */
 let MYMEMORY_EMAIL = '';
 let LAST_CREDS = '';

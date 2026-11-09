@@ -11,7 +11,7 @@ window.LinguaPage = window.LinguaPage || {};
     engine: 'auto',          // 翻译引擎：auto | google | mymemory | deepl | custom
     customEndpoint: '',      // 自定义接口 URL 模板，占位符 {text} {from} {to}
     deeplKey: '',            // DeepL 官方 API 密钥（免费版以 :fx 结尾）
-    mmEmail: '',             // MyMemory 提额邮箱（填了额度从 5000 → 5 万字符/天）
+    mmEmail: '',             // MyMemory 提额标识（留空时后台自动生成，额度 5000 → 5 万字符/天）
     selectionEnabled: true,  // 划词翻译
     hoverEnabled: false,     // 段落悬停翻译
     skipLinks: true,         // 链接文字保持原文

@@ -33,15 +33,44 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   return false;
 });
 
-// 后台自己读一次邮箱：不依赖内容脚本把 mmEmail 传上来
-// （页面里的设置缓存可能滞后，或补注入的脚本读到的是旧值）
+// MyMemory 提额标识。
+// de= 只要求「合法邮箱格式」，官方并不校验邮箱所有权（实测 pagelingo-xxx@example.com 同样返回 200）。
+// 但匿名额度只有 5000 字符/天，用完就整站报 429 —— 用户没填邮箱时，整条自动降级链会全灭，
+// 表现为「装了扩展、点了翻译，却一个中文都没有」。
+// 因此：用户填了就用用户的；没填就自动生成一个并写回 storage，无需任何手工配置。
+let autoEmail = '';
+let autoEmailPending = null;
+
+function makeAutoEmail() {
+  let id;
+  try {
+    id = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  } catch (e) {
+    id = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+  }
+  return 'pagelingo-' + id + '@example.com';
+}
+
 function readMmEmail() {
   return new Promise(function (resolve) {
     try {
       chrome.storage.sync.get({ mmEmail: '' }, function (items) {
-        resolve((items && items.mmEmail) || '');
+        // 每次都先读：用户后来自己填/改了邮箱，必须优先用他的值
+        if (items && items.mmEmail) { resolve(items.mmEmail); return; }
+        if (autoEmail) { resolve(autoEmail); return; }
+        // 并发的翻译请求共用一个生成过程，避免同一时刻生成多个标识
+        if (!autoEmailPending) {
+          autoEmailPending = new Promise(function (r) {
+            autoEmail = makeAutoEmail();
+            chrome.storage.sync.set({ mmEmail: autoEmail }, function () { r(autoEmail); });
+          });
+        }
+        autoEmailPending.then(resolve);
       });
-    } catch (e) { resolve(''); }
+    } catch (e) {
+      // storage 不可用时也不能把翻译卡死：本次请求至少带上提额标识
+      resolve(autoEmail || makeAutoEmail());
+    }
   });
 }
 

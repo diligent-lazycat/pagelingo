@@ -2,6 +2,50 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.3] - 2026-11-09
+
+检查用户**正在运行**的 Chrome 时发现：扩展其实已重载到最新版、已启用、快捷键已注册，
+但仍译不出中文。逐环节排查后的结论是「网络 + 免费额度 + 一个必须手填的配置」三者叠加。
+
+### 逐环节检查结果
+
+| 环节 | 检查方式 | 结果 |
+|---|---|---|
+| Chrome 进程 | `pgrep` + 版本 | Chrome 157 正常运行；默认配置无 CDP 调试端口（Chrome 136+ 安全限制） |
+| 扩展状态 | `Secure Preferences` | `location=4`（解压加载）、权限齐全、`has_started_service_worker=true`、注册版本 0.3.2 → **已安装已启用** |
+| 当前标签页 | `Sessions` | `github.com/diligent-lazycat/pagelingo`、`python.org/about` 等普通 https 页 → **可注入** |
+| 用户设置 | `Sync Extension Settings` leveldb | `engine=auto`、`deeplKey=""`、`customEndpoint=""`、**`mmEmail=""`** |
+| Google 引擎 | DNS + TCP + curl | DNS 能解析 `108.177.97.95`，但 **TCP 443 不通**，请求 8s 超时（HTTP 000） |
+| MyMemory 匿名 | curl | **HTTP 429**：`USED ALL AVAILABLE FREE TRANSLATIONS`，还要等 17h42m |
+| MyMemory 提额 | curl 带 `de=` | **HTTP 200「你好世界」**；且任意合法邮箱格式都生效，不校验所有权 |
+| DeepL / 自定义 | 用户设置 | 均未配置 |
+
+**根因**：自动降级链 `Google → MyMemory → DeepL → 自定义` 四环全灭。前两环是本机网络与免费额度所致，
+无法在客户端修复；真正的产品缺陷是**把「填邮箱」这个手工步骤当成了可选项** —— 一旦用户没填
+（面板里输入框默认为空），匿名额度耗尽后整个扩展就静默失效。
+
+### 修复
+
+- `readMmEmail()`：用户填了就用用户的；没填则自动生成并持久化
+  `pagelingo-<随机>@example.com` 写入 `chrome.storage.sync`，后续所有翻译请求自动带 `de=`。
+  每次请求仍先读 storage，用户后来自己填/改邮箱会立即优先生效；并发请求共用一个生成过程。
+- `syncEngineCredentials()` 会感知到该变化并清空引擎冷却，所以**改完设置能立刻重试，不用等 10 分钟**。
+- 面板输入框文案改为「可留空，扩展自动生成提额标识」；版本号改为从 manifest 读取
+  （原来写死 `v0.3.1`，改版本会忘改）。
+
+> 说明：该值只是 MyMemory 官方 `de=` 参数要求的**请求来源标识**，不是真实邮箱、不用于登录；
+> 每台机器只生成一次并持久化，不是反复刷新额度。想用自己的邮箱，在面板覆盖即可。
+
+### 验证（用用户当前 Chrome 配置的副本，保留「mmEmail 为空」的原始状态）
+
+| 步骤 | 结果 |
+|---|---|
+| 翻译前设置 | `mmEmail=""`、`engine="auto"`，与线上一致 |
+| 加载版本 | 0.3.3 |
+| 右键菜单路径 | **中文 259 字**，提示「翻译完成，共 18 段（mymemory）」，译文「此扩展将网页翻译成您的语言…帮助开发人员在GitHub和AI网站上阅读文档」 |
+| 翻译后设置 | 自动出现 `mmEmail="pagelingo-b78bd5ac399f412e@example.com"` |
+| 面板按钮路径 | `翻译完成，共 19 段文本，引擎 MyMemory`，中文 259 字 |
+
 ## [0.3.2] - 2026-11-09
 
 用户反馈「填了 MyMemory 提额邮箱，还是提示额度用完、还是不翻译」。查下来不是额度问题，

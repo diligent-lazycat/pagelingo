@@ -216,6 +216,11 @@
   function init() {
     fillLangs();
     bind();
+    // 版本号直接读 manifest，避免以后改版本忘了改面板里的硬编码
+    try {
+      const v = $('appVersion');
+      if (v) v.textContent = 'v' + chrome.runtime.getManifest().version;
+    } catch (e) { /* 忽略 */ }
     LP.storage.getAll().then(applySettings);
   }
 
