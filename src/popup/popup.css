@@ -113,3 +113,10 @@ select.full, input.full {
 .footer a { color: var(--muted); text-decoration: none; font-size: 12px; }
 .footer a:hover { color: var(--primary); }
 .ver { font-size: 11px; color: #c0c6cf; }
+
+/* 快捷键与右键菜单提示 */
+.tip {
+  margin: 0; padding: 10px 16px 0; font-size: 11px; line-height: 1.7;
+  color: var(--muted);
+}
+.tip b { color: #4b5563; font-weight: 600; }

@@ -113,9 +113,16 @@
     setStatus('正在翻译…');
     getActiveTab().then(function (tab) {
       if (!tab || !tab.id) { setStatus('未找到当前页面', true); return; }
+      // 内部页（chrome://、扩展页、应用商店）注定无法注入内容脚本，提前说清楚
+      const url = tab.url || '';
+      if (/^(chrome|edge|about|devtools|chrome-extension|extension):/i.test(url) ||
+          /chromewebstore\.google\.com|chrome\.google\.com\/webstore/i.test(url)) {
+        setStatus('这是浏览器内部页，扩展无法在此翻译。请切到一个普通网页（http/https）再点。', true);
+        return;
+      }
       chrome.tabs.sendMessage(tab.id, { type: 'LP_TRANSLATE_PAGE' }, function (resp) {
         if (chrome.runtime.lastError) {
-          setStatus('此页面不支持翻译（如浏览器内部页）', true);
+          setStatus('此页面还没加载扩展脚本：请先按 ⌘R 刷新页面，再点一次。', true);
           return;
         }
         if (resp && resp.error) {

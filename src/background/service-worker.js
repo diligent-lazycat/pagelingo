@@ -34,3 +34,65 @@ async function handleTranslate(msg) {
   if (Array.isArray(out)) return { translations: out };
   return { translations: out.translations, engine: out.engine };
 }
+
+// ---------------------------------------------------------------- 触发入口
+// 除了点工具栏图标打开面板，再提供「右键菜单」与「键盘快捷键」两条路径：
+// 面板打不开、图标被折叠、或在内部页上误点时，这两条都能直接干活。
+
+function setupMenus() {
+  chrome.contextMenus.removeAll(function () {
+    chrome.contextMenus.create({
+      id: 'lp-translate',
+      title: '翻译此页面（PageLingo）',
+      contexts: ['page', 'selection']
+    });
+    chrome.contextMenus.create({
+      id: 'lp-restore',
+      title: '还原原文（PageLingo）',
+      contexts: ['page', 'selection']
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(setupMenus);
+chrome.runtime.onStartup.addListener(setupMenus);
+// service worker 每次被唤醒也补一次：onInstalled 只在安装/更新时触发，
+// 而菜单在扩展重载后可能并不存在，这里用 removeAll→create 保证幂等
+setupMenus();
+
+function activeTab() {
+  return new Promise(function (resolve) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      resolve(tabs && tabs[0]);
+    });
+  });
+}
+
+// 给当前标签页发消息；页面没有内容脚本时返回可直接展示的原因
+function sendToActiveTab(msg) {
+  return activeTab().then(function (tab) {
+    if (!tab || !tab.id) return { error: '没有可用的标签页' };
+    return new Promise(function (resolve) {
+      chrome.tabs.sendMessage(tab.id, msg, function (resp) {
+        if (chrome.runtime.lastError) {
+          resolve({
+            error: '此页面不支持翻译：浏览器内部页（chrome://、扩展页、应用商店）不行；' +
+                   '扩展安装/重载前就已打开的页面需要先刷新一次'
+          });
+        } else {
+          resolve(resp || {});
+        }
+      });
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener(function (info) {
+  if (info.menuItemId === 'lp-translate') sendToActiveTab({ type: 'LP_TRANSLATE_PAGE' });
+  if (info.menuItemId === 'lp-restore') sendToActiveTab({ type: 'LP_RESTORE' });
+});
+
+chrome.commands.onCommand.addListener(function (cmd) {
+  if (cmd === 'translate-page') sendToActiveTab({ type: 'LP_TRANSLATE_PAGE' });
+  if (cmd === 'restore-page') sendToActiveTab({ type: 'LP_RESTORE' });
+});

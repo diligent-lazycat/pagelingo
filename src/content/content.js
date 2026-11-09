@@ -37,7 +37,7 @@ window.LinguaPage = window.LinguaPage || {};
     const skipLinks = LP.getSettings().skipLinks;
     let el = node.parentElement;
     while (el) {
-      if (el.id === 'lp-tooltip') return true;
+      if (el.id === 'lp-tooltip' || el.id === 'lp-toast') return true;
       if (skipLinks && el.tagName === 'A') return true;
       if (LP.classifier.shouldSkipElement(el)) return true;
       el = el.parentElement;
@@ -163,12 +163,51 @@ window.LinguaPage = window.LinguaPage || {};
 
   // ---------------------------------------------------------------- 全页翻译 / 还原
 
+  // ---------------------------------------------------------------- 页内提示
+  // 用右键菜单或快捷键触发时没有面板可看，所以在页面右下角给一条状态提示。
+  // 挂在 <html> 而不是 <body> 上：既不进入全页翻译的文本遍历，也不会触发动态观察。
+  LP.toast = function (text, kind, holdMs) {
+    let el = document.getElementById('lp-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'lp-toast';
+      el.setAttribute('data-lp', 'ui');
+      el.style.cssText = [
+        'position:fixed', 'right:18px', 'bottom:18px', 'z-index:2147483647',
+        'max-width:360px', 'padding:10px 14px', 'border-radius:10px',
+        'font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif',
+        'color:#fff', 'background:#2563eb', 'box-shadow:0 6px 24px rgba(0,0,0,.25)',
+        'pointer-events:none', 'opacity:0', 'transition:opacity .18s ease'
+      ].join(';');
+      document.documentElement.appendChild(el);
+    }
+    el.style.background = kind === 'error' ? '#dc2626'
+      : kind === 'ok' ? '#16a34a'
+      : '#2563eb';
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(el.__lpTimer);
+    el.__lpTimer = setTimeout(function () { el.style.opacity = '0'; }, holdMs || 2600);
+    return el;
+  };
+
   LP.translateWholePage = async function () {
     const nodes = LP.collectTextNodes(document.body, LP.doneTextNodes);
     LP.setDynamicEnabled(true); // 开启动态内容翻译
-    if (!nodes.length) return { count: 0 };
-    await LP.translateNodes(nodes);
-    return { count: nodes.length, engine: LP.lastEngine || '' };
+    if (!nodes.length) {
+      LP.toast('本页没有可翻译的文本（可能已是中文，或全部被跳过）', 'error');
+      return { count: 0 };
+    }
+    LP.toast('正在翻译 ' + nodes.length + ' 段文本…');
+    try {
+      await LP.translateNodes(nodes);
+    } catch (e) {
+      LP.toast('翻译失败：' + e.message, 'error', 6000);
+      throw e;
+    }
+    const engine = LP.lastEngine || '';
+    LP.toast('翻译完成，共 ' + nodes.length + ' 段' + (engine ? '（' + engine + '）' : ''), 'ok');
+    return { count: nodes.length, engine: engine };
   };
 
   LP.restorePage = function () {
@@ -176,8 +215,10 @@ window.LinguaPage = window.LinguaPage || {};
     LP.translatedList.forEach(function (item) {
       if (item.node.isConnected) item.node.nodeValue = item.orig;
     });
+    const n = LP.translatedList.length;
     LP.translatedList = [];
     LP.doneTextNodes = new WeakSet();
+    if (LP.toast) LP.toast('已还原原文' + (n ? '（' + n + ' 段）' : ''), 'ok');
   };
 
   // ---------------------------------------------------------------- 消息监听
