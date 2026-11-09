@@ -68,31 +68,112 @@ function activeTab() {
   });
 }
 
-// 给当前标签页发消息；页面没有内容脚本时返回可直接展示的原因
-function sendToActiveTab(msg) {
-  return activeTab().then(function (tab) {
-    if (!tab || !tab.id) return { error: '没有可用的标签页' };
-    return new Promise(function (resolve) {
-      chrome.tabs.sendMessage(tab.id, msg, function (resp) {
-        if (chrome.runtime.lastError) {
-          resolve({
-            error: '此页面不支持翻译：浏览器内部页（chrome://、扩展页、应用商店）不行；' +
-                   '扩展安装/重载前就已打开的页面需要先刷新一次'
-          });
-        } else {
-          resolve(resp || {});
-        }
-      });
+// 与 manifest 的 content_scripts 保持一致：补注入时按同一顺序执行
+const CONTENT_FILES = [
+  'src/shared/langs.js',
+  'src/shared/storage.js',
+  'src/content/classifier.js',
+  'src/content/protector.js',
+  'src/content/tooltip.js',
+  'src/content/hover.js',
+  'src/content/selection.js',
+  'src/content/dynamic.js',
+  'src/content/content.js'
+];
+
+// 工具栏角标：没有面板可看时，用它给出「进行中/成功/失败」信号
+function setBadge(text, color) {
+  try {
+    chrome.action.setBadgeBackgroundColor({ color: color || '#dc2626' });
+    chrome.action.setBadgeText({ text: text || '' });
+  } catch (e) { /* 忽略：角标只是辅助反馈 */ }
+}
+
+function flashBadge(text, color) {
+  setBadge(text, color);
+  if (text) {
+    setTimeout(function () { chrome.action.setBadgeText({ text: '' }); }, 4000);
+  }
+}
+
+async function runOnActiveTab(msg, showProgress) {
+  if (showProgress) setBadge('…', '#2563eb');
+  const r = await sendToActiveTab(msg);
+  if (r && r.error) flashBadge('!', '#dc2626');
+  else flashBadge('✓', '#16a34a');
+  return r;
+}
+
+function sendOnce(tabId, msg) {
+  return new Promise(function (resolve) {
+    chrome.tabs.sendMessage(tabId, msg, function (resp) {
+      if (chrome.runtime.lastError) {
+        resolve({ __noReceiver: true, error: chrome.runtime.lastError.message });
+      } else {
+        resolve(resp || {});
+      }
     });
   });
 }
 
+// 补注入：扩展安装/重载前就打开的页面里没有内容脚本，Chrome 不会自动补，
+// 这时右键菜单/快捷键发过去的消息会静默失败（用户看到的就是「点了没反应」）。
+async function injectContentScripts(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: CONTENT_FILES
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function sendToActiveTab(msg) {
+  const tab = await activeTab();
+  if (!tab || !tab.id) {
+    flashBadge('!');
+    return { error: '没有可用的标签页' };
+  }
+
+  let resp = await sendOnce(tab.id, msg);
+  if (!resp.__noReceiver) {
+    flashBadge('');
+    return resp;
+  }
+
+  // 页面里没有可用的内容脚本 → 自动补注入，再发一次
+  const injected = await injectContentScripts(tab.id);
+  if (!injected) {
+    flashBadge('!');
+    return { error: '此页面不允许扩展运行（chrome:// 内部页、扩展页、应用商店）' };
+  }
+  await new Promise(function (r) { setTimeout(r, 150); });
+
+  resp = await sendOnce(tab.id, msg);
+  if (resp.__noReceiver) {
+    flashBadge('!');
+    return { error: '已补注入脚本但页面仍无响应，请刷新页面重试' };
+  }
+  flashBadge('');
+  return resp;
+}
+
 chrome.contextMenus.onClicked.addListener(function (info) {
-  if (info.menuItemId === 'lp-translate') sendToActiveTab({ type: 'LP_TRANSLATE_PAGE' });
-  if (info.menuItemId === 'lp-restore') sendToActiveTab({ type: 'LP_RESTORE' });
+  if (info.menuItemId === 'lp-translate') {
+    runOnActiveTab({ type: 'LP_TRANSLATE_PAGE' }, true);
+  }
+  if (info.menuItemId === 'lp-restore') {
+    runOnActiveTab({ type: 'LP_RESTORE' }, false);
+  }
 });
 
 chrome.commands.onCommand.addListener(function (cmd) {
-  if (cmd === 'translate-page') sendToActiveTab({ type: 'LP_TRANSLATE_PAGE' });
-  if (cmd === 'restore-page') sendToActiveTab({ type: 'LP_RESTORE' });
+  if (cmd === 'translate-page') {
+    runOnActiveTab({ type: 'LP_TRANSLATE_PAGE' }, true);
+  }
+  if (cmd === 'restore-page') {
+    runOnActiveTab({ type: 'LP_RESTORE' }, false);
+  }
 });

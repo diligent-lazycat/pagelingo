@@ -5,6 +5,11 @@
 window.LinguaPage = window.LinguaPage || {};
 
 (function (LP) {
+  // 重复注入保护：service worker 发现页面没有脚本时会补注入一次
+  // （典型场景：扩展安装/重载前就打开的标签页），避免事件被重复绑定
+  if (LP.__booted) return;
+  LP.__booted = true;
+
   LP.settings = null;
   LP.doneTextNodes = new WeakSet(); // 已翻译文本节点
   LP.translatedList = [];            // 可还原的 {node, orig}
