@@ -49,3 +49,15 @@ GitHub 用例刻意不用真实接口：一是规模大（单页 300+ 文本节�
 | `SITE_PORT` / `SITE_URL` | 8765 | 本地静态站端口 |
 | `MOCK_PORT` | 8799 | mock 引擎端口 |
 | `OUT_DIR` | `tests/e2e/output` | 产物目录 |
+
+## 已知坑（实测踩过，省你时间）
+
+| 现象 | 原因 / 解法 |
+|---|---|
+| 命令结束后扩展全部消失、端口连不上 | Chrome 由 shell 启动时，**命令结束就被回收**。启动 Chrome 与跑测试必须在**同一条命令**里（见 `run-local.sh`） |
+| `--load-extension` 无任何效果 | **Chrome 137 起已移除**该开关，静默忽略。必须用 CDP 的 `Extensions.loadUnpacked`（浏览器级 session，页面级会报 Method not available） |
+| `Extensions.loadUnpacked` 报 Method not available | `Extensions` 是**浏览器级域**，页面级 CDP session 调不到 |
+| 在页面上下文里 `window.LinguaPage` 恒为 undefined | 内容脚本运行在**隔离世界**，页面上下文看不到。要用 `Runtime.evaluate` 指定扩展的 contextId |
+| `--remote-debugging-port` 在默认用户目录上不生效 | **Chrome 136+ 出于安全禁止对默认配置开调试端口**（防 Cookie 窃取）。验证「用户真实配置」时的做法：复制 `~/Library/Application Support/Google/Chrome` 下的 `Local State` + `Default`（排除 Cache 等大目录）到临时目录，再 `--user-data-dir=<副本>` 启动 |
+| 脚本启动的 Chrome 报 `sandbox initialization failed` | 沙箱/CI 环境需加 `--no-sandbox` |
+| Chrome 打不开 github.com 而 curl 正常 | Chrome **不继承 shell 的 `HTTP_PROXY`**，需显式 `--proxy-server`；而系统代理（macOS 网络设置）Chrome 会自己读 |

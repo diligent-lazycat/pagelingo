@@ -29,6 +29,9 @@ window.LinguaPage = window.LinguaPage || {};
 
   // ---------------------------------------------------------------- 节点判定
 
+  // 键盘快捷键提示：修饰键组合（option shift r）或按键序列（g then d）
+  const SHORTCUT_RE = /^(?:(?:option|shift|cmd|command|ctrl|control|alt|fn|⌘|⇧|⌥|⌃)\s+)*[a-z0-9]$|^[a-z0-9]\s+(?:then|and)\s+[a-z0-9]$/i;
+
   // 判断文本节点是否应跳过（祖先含代码/链接/悬浮框等）
   LP.isSkippedTextNode = function (node) {
     const skipLinks = LP.getSettings().skipLinks;
@@ -39,8 +42,12 @@ window.LinguaPage = window.LinguaPage || {};
       if (LP.classifier.shouldSkipElement(el)) return true;
       el = el.parentElement;
     }
+    const text = (node.nodeValue || '').trim();
     // 文本本身像代码/命令/版本号时也跳过（旧版定义了 isCodeLike 却从未调用）
-    if (LP.classifier.isCodeLike((node.nodeValue || '').trim())) return true;
+    if (LP.classifier.isCodeLike(text)) return true;
+    // 键盘快捷键提示跳过：GitHub 的「g then d」「option shift r」译出来是
+    // 「g然后d」，既畸形又破坏按键提示，实测这两类必须原样保留
+    if (SHORTCUT_RE.test(text)) return true;
     return false;
   };
 

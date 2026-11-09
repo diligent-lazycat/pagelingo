@@ -2,6 +2,28 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] - 2026-11-09
+
+在用户**真实 Chrome 配置**（复制其 `Default` 配置副本）里跑到 GitHub 英文仓库页做实测时
+发现的两处误译，均为「不该翻译的短文本被翻译」：
+
+### 修复
+- **键盘快捷键提示被翻译**：GitHub 的 `g then d`（跳到某页的按键序列）、`option shift r`
+  被译成「g然后d」「oPTION SHIFT r」。新增 `SHORTCUT_RE`，形如「修饰键组合 + 单键」或
+  「单键 then/and 单键」的文本一律保持原文。
+- 术语保护对短词误伤的观察记录：`Switch repository` 译成「切换repository」属**设计内行为**
+  （`Repository` 在保护术语表里），不改。
+
+### 实测（真实用户配置 + 真实 GitHub 页面）
+| 指标 | 结果 |
+|---|---|
+| 页面 | `github.com/anthropics/anthropic-sdk-python`（lang=en） |
+| 文本节点 | 476 个，翻译 135 段，改写 104 个 |
+| 中文字数 | 0 → 402 |
+| `pre` / `code` | 逐字未变 |
+| 页面宽度 | 785 → 785（零变化） |
+| 状态栏 | 翻译完成，共 135 段文本，引擎 MyMemory |
+
 ## [0.2.0] - 2026-11-08
 
 针对「装了扩展却翻译不了」的真实问题做的可用性改造。起因：本机 `translate.googleapis.com`
