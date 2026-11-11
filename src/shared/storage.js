@@ -15,7 +15,12 @@ window.LinguaPage = window.LinguaPage || {};
     selectionEnabled: true,  // 划词翻译
     hoverEnabled: false,     // 段落悬停翻译
     skipLinks: true,         // 链接文字保持原文
-    protectTerms: true       // 专业术语占位保护
+    protectTerms: true,      // 专业术语占位保护
+    // 打开网页自动翻译：旧版只能靠右键/快捷键/面板手动触发，用户按直觉
+    // 「装了扩展 → 打开 GitHub 就该有中文」，于是反复出现「打开了却没翻译」。
+    // 用站点白名单控制范围，避免任意英文页面都吃光免费额度。
+    autoTranslate: true,
+    autoSites: 'github.com'
   };
 
   LP.storage = {

@@ -287,6 +287,26 @@ window.LinguaPage = window.LinguaPage || {};
     return false;
   });
 
+  // ---------------------------------------------------------------- 自动翻译
+
+  // 旧版只能手动触发（面板按钮 / 右键 / 快捷键），「装了扩展、打开 GitHub
+  // 却没有中文」的高频反馈其实不是链路故障，而是缺一个「打开即译」的默认行为。
+  // 双重限制避免误伤：页面语言是中文就跳过；站点必须命中白名单，
+  // 免得任意英文页面都消耗免费额度。
+  function shouldAutoTranslate() {
+    const s = LP.getSettings();
+    if (s.autoTranslate === false) return false;
+    const lang = (document.documentElement.lang || '').toLowerCase();
+    if (/^zh\b/.test(lang)) return false;
+    const host = location.hostname.toLowerCase();
+    const sites = String(s.autoSites || '').split(/[,，\s]+/)
+      .map(function (x) { return x.toLowerCase().replace(/^\*\./, '').trim(); })
+      .filter(Boolean);
+    return sites.some(function (site) {
+      return host === site || host.endsWith('.' + site);
+    });
+  }
+
   // ---------------------------------------------------------------- 初始化
 
   loadSettings().then(function () {
@@ -300,6 +320,13 @@ window.LinguaPage = window.LinguaPage || {};
         LP.initSelection();
         LP.initDynamic();
       });
+    }
+    if (shouldAutoTranslate()) {
+      // 等页面首屏异步内容稳定再翻；新增节点由 dynamic.js 接着处理。
+      setTimeout(function () {
+        // 失败原因已由 LP.toast 展示，这里只避免未处理的 Promise 异常
+        LP.translateWholePage().catch(function () {});
+      }, 900);
     }
   });
 })(window.LinguaPage);

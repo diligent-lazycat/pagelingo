@@ -29,6 +29,9 @@ bash tests/e2e/run-github.sh   # GitHub 真实页面，8 项断言，用本地 m
 LP_MOCK=0 MM_EMAIL=you@example.com bash tests/e2e/run-local.sh
 ```
 
+> 两套用例都会显式写入 `autoTranslate: false`：0.3.5 起扩展会在白名单英文页自动翻译，
+> 不关掉会打乱 before/after 对比断言。自动翻译行为另用「只打开页面、不点任何按钮」的独立场景验证。
+
 > 2026-11 起本地用例默认改为 mock：原先直接打真实接口，**第三方免费额度一耗尽整套用例就红**，
 > 分不清是产品回归还是额度问题。mock 只回 `【译】` + 原文，足够验证「谁进了翻译器、谁没被翻、
 > 布局有没有变」，真实译文质量交给 `LP_MOCK=0` 那一轮。

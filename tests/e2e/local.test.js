@@ -82,7 +82,7 @@ async function until(fn, timeout = 60000, interval = 500) {
       sourceLang: 'en', targetLang: 'zh-CN', engine: c.engine,
       customEndpoint: c.endpoint, mmEmail: c.email,
       selectionEnabled: true, hoverEnabled: false,
-      skipLinks: true, protectTerms: true
+      skipLinks: true, protectTerms: true, autoTranslate: false
     });
     return await chrome.storage.sync.get(null);
   }, { engine: ENGINE, endpoint: ENDPOINT, email: MM_EMAIL });
@@ -224,6 +224,7 @@ async function until(fn, timeout = 60000, interval = 500) {
       type: 'LP_UPDATE_SETTINGS',
       settings: {
         hoverEnabled: true, selectionEnabled: true, skipLinks: true, protectTerms: true,
+        autoTranslate: false,
         engine: c.engine, customEndpoint: c.endpoint, mmEmail: c.email,
         sourceLang: 'en', targetLang: 'zh-CN'
       }

@@ -15,6 +15,8 @@
     hoverEnabled: $('hoverEnabled'),
     protectTerms: $('protectTerms'),
     skipLinks: $('skipLinks'),
+    autoTranslate: $('autoTranslate'),
+    autoSites: $('autoSites'),
     engine: $('engine'),
     customEndpoint: $('customEndpoint'),
     deeplKey: $('deeplKey'),
@@ -57,6 +59,8 @@
     els.hoverEnabled.checked = s.hoverEnabled;
     els.protectTerms.checked = s.protectTerms;
     els.skipLinks.checked = s.skipLinks;
+    els.autoTranslate.checked = s.autoTranslate !== false;
+    els.autoSites.value = s.autoSites || '';
     els.engine.value = s.engine;
     els.customEndpoint.value = s.customEndpoint || '';
     els.deeplKey.value = s.deeplKey || '';
@@ -85,6 +89,8 @@
       hoverEnabled: els.hoverEnabled.checked,
       protectTerms: els.protectTerms.checked,
       skipLinks: els.skipLinks.checked,
+      autoTranslate: els.autoTranslate.checked,
+      autoSites: els.autoSites.value.trim(),
       engine: els.engine.value,
       customEndpoint: els.customEndpoint.value.trim(),
       deeplKey: els.deeplKey.value.trim(),
@@ -142,7 +148,8 @@
 
   function bind() {
     [els.sourceLang, els.targetLang, els.selectionEnabled, els.hoverEnabled,
-     els.protectTerms, els.skipLinks, els.engine].forEach(function (el) {
+     els.protectTerms, els.skipLinks, els.autoTranslate, els.autoSites,
+     els.engine].forEach(function (el) {
       el.addEventListener('change', save);
     });
     els.customEndpoint.addEventListener('input', function () {

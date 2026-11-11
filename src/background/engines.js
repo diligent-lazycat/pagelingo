@@ -167,15 +167,16 @@ const MyMemoryEngine = {
   async translate(texts, sl, tl) {
     const results = new Array(texts.length);
     const self = this;
-    // 并发 3：纯串行时整页几百段要等一分多钟，并发过高又容易被限流
-    const CONCURRENCY = 3;
+    // 并发 6：GitHub 这类页面有 250+ 文本节点，并发 3 时约两分钟才出中文，
+    // 用户会以为「打开网页没翻译」。6 路是实测不触发 MyMemory 限流的上限。
+    const CONCURRENCY = 6;
     let cursor = 0;
 
     async function worker() {
       while (cursor < texts.length) {
         const i = cursor++;
         results[i] = await self.translateLong(texts[i], sl, tl);
-        await sleep(120);
+        await sleep(40);
       }
     }
 

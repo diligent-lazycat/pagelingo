@@ -37,7 +37,8 @@ async function until(fn, timeout = 120000, interval = 700) {
   await popup.evaluate(async (endpoint) => {
     await chrome.storage.sync.set({
       sourceLang: 'en', targetLang: 'zh-CN', engine: 'custom', customEndpoint: endpoint,
-      selectionEnabled: true, hoverEnabled: false, skipLinks: true, protectTerms: true
+      selectionEnabled: true, hoverEnabled: false, skipLinks: true, protectTerms: true,
+      autoTranslate: false
     });
   }, MOCK);
 
